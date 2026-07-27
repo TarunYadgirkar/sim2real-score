@@ -18,6 +18,12 @@ from .sweep.grid import GridResult, coarse_grid
 MIN_MULTIPLICATIVE = 1e-3   # keep suggested multiplicative ranges physical (> 0)
 BASE_EXPANSION = 0.5        # how far past a breaking point to train, at ST = 0
 MAX_EXPANSION = 1.5         # ... and at ST = 1
+# A suggested range must stay on the same scale as the breaking point it covers.
+# Linear expansion by the nominal-to-breaking-point gap can overshoot through
+# zero (e.g. breaks at 0.38, gap 0.62 -> negative), which clamps to a degenerate
+# floor and suggests training over a physically meaningless range.
+MIN_FRACTION_OF_BP = 0.4
+MAX_FACTOR_OF_BP = 2.5
 
 
 @dataclass
@@ -116,8 +122,12 @@ def suggest_dr_config(result: AnalysisResult) -> dict:
         if bp is not None:
             if bp.low is not None:
                 lo = bp.low - grow * abs(spec.nominal - bp.low)
+                if bp.low > 0:
+                    lo = max(lo, MIN_FRACTION_OF_BP * bp.low)
             if bp.high is not None:
                 hi = bp.high + grow * abs(bp.high - spec.nominal)
+                if bp.high > 0:
+                    hi = min(hi, MAX_FACTOR_OF_BP * bp.high)
         if spec.kind in ("multiplicative", "probability", "additive_std"):
             lo = max(lo, MIN_MULTIPLICATIVE if spec.kind == "multiplicative" else 0.0)
         if spec.kind == "probability":

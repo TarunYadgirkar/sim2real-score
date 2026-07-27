@@ -1,9 +1,29 @@
 """Acceptance 5: parallel and serial execution produce identical results."""
+import os
+import warnings
+
 import numpy as np
 from sim2real_score import run_analysis
+from sim2real_score.rollout.executor import run_batch
 from fixtures.policies import friction_overfit_policy, linear_space
 
 ACTIVE = ("friction", "mass", "action_latency")
+
+
+def _worker_pid(values, index):
+    return os.getpid()
+
+
+def test_parallel_path_actually_engages():
+    """Guards the equality test below: if the executor silently fell back to
+    serial, `test_parallel_equals_serial` would pass vacuously."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        pids = run_batch(_worker_pid, [({}, i) for i in range(12)], n_jobs=4)
+    fallbacks = [str(w.message) for w in caught
+                 if "parallel execution unavailable" in str(w.message)]
+    assert not fallbacks, f"executor fell back to serial: {fallbacks}"
+    assert set(pids) != {os.getpid()}, "work ran in the parent process"
 
 
 def test_parallel_equals_serial():

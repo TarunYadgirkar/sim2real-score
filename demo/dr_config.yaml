@@ -1,0 +1,48 @@
+# Suggested domain-randomization ranges, derived from sim2real-score.
+# Robustness score: 87.5/100. Ranked by total-order Sobol index: mass, friction, damping, actuator_gain, obs_noise, action_latency, sensor_dropout
+env: linear
+failure:
+  metric: return
+  threshold: 0.45
+  threshold_kind: mean_reward
+params:
+  action_latency:
+    high: 6.0
+    is_int: true
+    kind: int
+    low: 0.0
+    nominal: 0.0
+  actuator_gain:
+    high: 2.027112447525409
+    kind: multiplicative
+    low: 0.5
+    nominal: 1.0
+  damping:
+    high: 2.0
+    kind: multiplicative
+    low: 0.5
+    nominal: 1.0
+  friction:
+    high: 2.0
+    kind: multiplicative
+    low: 0.1528125
+    nominal: 1.0
+  mass:
+    high: 2.0
+    kind: multiplicative
+    low: 0.5
+    nominal: 1.0
+  obs_noise:
+    high: 0.2
+    kind: additive_std
+    low: 0.0
+    nominal: 0.0
+  sensor_dropout:
+    high: 0.6
+    kind: probability
+    low: 0.0
+    nominal: 0.0
+rollout:
+  episodes: 6
+  max_steps: 200
+seed: 0

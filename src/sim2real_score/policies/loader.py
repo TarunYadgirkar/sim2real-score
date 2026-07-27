@@ -41,12 +41,28 @@ def _as_batch(obs):
     return (obs.reshape(1, -1) if single else obs), single
 
 
-class TorchScriptPolicy:
+class _ReloadablePolicy:
+    """Backend handles (TorchScript modules, ONNX sessions) are not picklable, so
+    parallel workers cannot receive them directly. Pickle the *load spec* instead
+    and rebuild the handle in the worker -- otherwise every analysis using a
+    policy file would silently fall back to serial execution."""
+
+    def __getstate__(self):
+        return {"path": self.path, "obs_dim": self.obs_dim,
+                "action_dim": self.action_dim}
+
+    def __setstate__(self, state):
+        self.__init__(state["path"], obs_dim=state["obs_dim"],
+                      action_dim=state["action_dim"])
+
+
+class TorchScriptPolicy(_ReloadablePolicy):
     """A TorchScript module taking float32 `[N, obs_dim]` -> `[N, action_dim]`."""
 
     def __init__(self, path: str, obs_dim=None, action_dim=None):
         import torch  # lazy
         self._torch = torch
+        self.path = path
         self.module = torch.jit.load(path, map_location="cpu")
         self.module.eval()
         self.obs_dim = obs_dim
@@ -63,11 +79,12 @@ class TorchScriptPolicy:
         return y[0] if single else y
 
 
-class OnnxPolicy:
+class OnnxPolicy(_ReloadablePolicy):
     """A single-input/single-output ONNX model float32 `[N, obs_dim]` -> `[N, action_dim]`."""
 
     def __init__(self, path: str, obs_dim=None, action_dim=None):
         import onnxruntime as ort  # lazy
+        self.path = path
         self.session = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
         self.input_name = self.session.get_inputs()[0].name
         self.obs_dim = obs_dim
@@ -88,8 +105,15 @@ class Sb3Policy:
 
     _ALGOS = ("PPO", "SAC", "TD3", "A2C", "DDPG", "DQN")
 
+    def __getstate__(self):
+        return {"path": self.path}
+
+    def __setstate__(self, state):
+        self.__init__(state["path"])
+
     def __init__(self, path: str):
         import stable_baselines3 as sb3  # lazy
+        self.path = path
         last_err = None
         model = None
         for name in self._ALGOS:

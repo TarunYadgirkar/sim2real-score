@@ -59,6 +59,39 @@ def test_onnx_roundtrip(tmp_path):
     assert np.allclose(out, _expected(), atol=1e-4)
 
 
+def test_loaded_policies_survive_pickling(tmp_path):
+    """Parallel workers receive the policy by pickle. Backend handles (TorchScript
+    modules, ONNX sessions) are not picklable, so without a load-spec fallback
+    every analysis of a policy *file* would silently degrade to serial."""
+    import pickle
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("onnxruntime")
+
+    class Net(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.lin = torch.nn.Linear(2, 1)
+            with torch.no_grad():
+                self.lin.weight.copy_(torch.tensor(W, dtype=torch.float32))
+                self.lin.bias.copy_(torch.tensor(B, dtype=torch.float32))
+
+        def forward(self, x):
+            return self.lin(x)
+
+    net = Net().eval()
+    pt_path = tmp_path / "policy.pt"
+    torch.jit.save(torch.jit.script(net), str(pt_path))
+    onnx_path = tmp_path / "policy.onnx"
+    torch.onnx.export(net, torch.zeros(1, 2), str(onnx_path),
+                      input_names=["obs"], output_names=["action"],
+                      dynamic_axes={"obs": {0: "n"}, "action": {0: "n"}})
+
+    for path, kind in [(pt_path, "torch"), (onnx_path, "onnx")]:
+        pol = load_policy(str(path), kind=kind, obs_dim=2, action_dim=1)
+        revived = pickle.loads(pickle.dumps(pol))
+        assert np.allclose(revived.predict(OBS), pol.predict(OBS), atol=1e-5)
+
+
 def test_sb3_roundtrip(tmp_path):
     pytest.importorskip("stable_baselines3")
     import gymnasium as gym
