@@ -28,14 +28,55 @@ class MujocoControlEnv:
             "geom_friction": np.array(model.geom_friction, copy=True),
         }
 
-    def set_domain_params(self, params: dict) -> None:
+    def _resolve(self, base: str, target: str):
+        """Rows of the model array that a target name refers to."""
+        import mujoco
+
         model = self.env.unwrapped.model
-        if "mass" in params:
-            model.body_mass[:] = self._nominal["body_mass"] * float(params["mass"])
-        if "damping" in params:
-            model.dof_damping[:] = self._nominal["dof_damping"] * float(params["damping"])
-        if "friction" in params:
-            model.geom_friction[:] = self._nominal["geom_friction"] * float(params["friction"])
+        obj_type = {"friction": mujoco.mjtObj.mjOBJ_GEOM,
+                    "mass": mujoco.mjtObj.mjOBJ_BODY,
+                    "damping": mujoco.mjtObj.mjOBJ_JOINT}[base]
+        index = mujoco.mj_name2id(model, obj_type, target)
+        if index < 0:
+            kind = {"friction": "geom", "mass": "body", "damping": "joint"}[base]
+            count = {"friction": model.ngeom, "mass": model.nbody,
+                     "damping": model.njnt}[base]
+            available = [mujoco.mj_id2name(model, obj_type, i) for i in range(count)]
+            raise ValueError(
+                f"{base}.{target}: no {kind} named {target!r} in {self.env_id}. "
+                f"Available {kind}s: {', '.join(n for n in available if n)}")
+        if base != "damping":
+            return [index]
+        # a joint owns a contiguous block of DOFs
+        start = int(model.jnt_dofadr[index])
+        end = (int(model.jnt_dofadr[index + 1]) if index + 1 < model.njnt
+               else int(model.nv))
+        return list(range(start, end))
+
+    def set_domain_params(self, params: dict) -> None:
+        """Multipliers are always interpreted against the *nominal* model, so
+        repeated calls never compound and a sweep point never inherits the
+        previous one. Targeted and global factors compose multiplicatively."""
+        from ..randomization.space import split_target
+
+        model = self.env.unwrapped.model
+        field = {"friction": "geom_friction", "mass": "body_mass",
+                 "damping": "dof_damping"}
+        pending = {}
+        for name, value in params.items():
+            base, target = split_target(name)
+            if base not in field:
+                continue
+            pending.setdefault(base, []).append((target, float(value)))
+
+        for base, entries in pending.items():
+            values = self._nominal[field[base]].copy()
+            for target, factor in entries:
+                if target is None:
+                    values *= factor
+                else:
+                    values[self._resolve(base, target)] *= factor
+            getattr(model, field[base])[:] = values
 
     def reset(self, *, seed=None):
         obs, info = self.env.reset(seed=self._seed if seed is None else seed)

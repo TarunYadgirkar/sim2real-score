@@ -252,6 +252,27 @@ machinery, so the acceptance test checks the *tool*, not a circular fixture.
 
 ---
 
+## 7a. Post-spec extensions
+
+Added after the acceptance suite was green (contract order: spec → tests →
+implement → extras). Each ships with its own tests.
+
+- **SB3 VecNormalize** — `load_policy(..., vecnormalize=path)` and
+  `--vecnormalize` apply saved observation statistics. MuJoCo policies are
+  almost always trained under VecNormalize; feeding one raw observations
+  silently evaluates a different policy than the one that was trained.
+- **Targeted randomization** — a dynamics parameter may name a single model
+  element: `friction.foot_geom`, `mass.torso`, `damping.leg_joint`. Targets
+  resolve to geoms (friction), bodies (mass), and joints (damping, expanded to
+  the joint's DOF block). Targeted and global factors compose multiplicatively,
+  and every value is applied against the *nominal* model so repeated calls never
+  compound. An unknown target fails loudly and lists the valid names. Wrapper
+  parameters take no target.
+- **Trained-policy validation** — `experiments/train_dr_policies.py` trains a
+  nominal-trained and a friction-randomized PPO policy on Hopper;
+  `tests/test_trained_policy_validation.py` asserts the tool separates them.
+  Skipped unless the trained policies are present.
+
 ## 8. Out of scope
 
 - Training policies (beyond the trivial hardcoded ground-truth fixtures).

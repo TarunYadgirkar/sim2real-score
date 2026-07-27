@@ -15,12 +15,23 @@ from collections import deque
 
 import numpy as np
 
-from .space import DYNAMICS_PARAMS, WRAPPER_PARAMS
+from .space import DYNAMICS_PARAMS, WRAPPER_PARAMS, base_param
 
 
 def split_params(params: dict):
-    dynamics = {k: params[k] for k in DYNAMICS_PARAMS if k in params}
-    wrapper = {k: params[k] for k in WRAPPER_PARAMS if k in params}
+    """Route parameters to the simulator model vs the universal wrapper. Names may
+    carry a target suffix (`friction.foot`), which only dynamics params accept."""
+    dynamics, wrapper = {}, {}
+    for name, value in params.items():
+        base = base_param(name)
+        if base in DYNAMICS_PARAMS:
+            dynamics[name] = value
+        elif base in WRAPPER_PARAMS:
+            if name != base:
+                raise ValueError(
+                    f"{name!r}: {base} applies to the whole policy/env and takes "
+                    "no target suffix")
+            wrapper[name] = value
     return dynamics, wrapper
 
 

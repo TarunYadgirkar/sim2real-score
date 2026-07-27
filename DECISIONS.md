@@ -2,6 +2,35 @@
 
 Running log of non-obvious choices made autonomously. Newest first.
 
+## D15 — Targeted params are dotted names resolved per model element
+`friction.foot_geom` / `mass.torso` / `damping.leg_joint`. Chose a dotted suffix
+over a nested YAML block because it keeps `ParamSpec`, the Sobol problem
+definition, and the report's parameter axis unchanged — a target is just part of
+the parameter's identity. Values always apply against the *cached nominal* model
+so repeated calls never compound (a sweep point must not inherit the previous
+one); targeted and global factors compose multiplicatively. Unknown targets raise
+with the valid names listed, because the natural guess is wrong in exactly the
+common case: Hopper's foot *body* is `foot` but its geom is `foot_geom`.
+Wrapper params (latency, noise, dropout, gain) reject a target — they are not
+properties of a model element.
+
+## D14 — VecNormalize statistics are part of the policy
+An SB3 MuJoCo checkpoint without its `VecNormalize` stats is not the policy that
+was trained — observations land in the wrong range and the measured robustness
+describes a policy nobody deployed. Rather than silently guessing, the stats are
+an explicit optional argument (`vecnormalize=`), loaded and applied before every
+prediction, and carried through pickling so parallel workers stay consistent.
+Discovered while setting up the trained-policy validation experiment, which is
+precisely the sort of integration gap the analytic fixtures cannot surface.
+
+## D13 — A test that asserted the wrong model
+`test_targeted_friction_changes_only_that_geom` originally targeted
+`friction.foot`; Hopper has a *body* named `foot` but its geom is `foot_geom`.
+The test was factually wrong about the model, so it was corrected (contract
+allows fixing a genuinely wrong test, noted here). The mechanism it exercised was
+already correct — the error-path test passed on the first run. Prompted the
+error message to list valid names.
+
 ## D12 — numpy pinned <2 (environment constraint, not preference)
 torch 2.2.2 is the last PyTorch build for Intel macOS and raises
 "Numpy is not available" against numpy 2.x. Since the torch/SB3 extras are needed

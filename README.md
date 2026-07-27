@@ -99,6 +99,31 @@ it from the analysis. `threshold_kind` is `mean_reward`, `absolute`, or
 `fraction_of_nominal`. `friction`/`mass`/`damping` are applied to the simulator
 model; the rest are applied by a wrapper and work on any environment.
 
+### Targeting one part of the robot
+
+Global multipliers rescale the whole model, which changes the task rather than
+probing a weak spot. Dynamics parameters can name a single element instead:
+
+```yaml
+params:
+  friction.foot_geom: {nominal: 1.0, low: 0.3, high: 2.0, kind: multiplicative}
+  damping.leg_joint:  {nominal: 1.0, low: 0.5, high: 2.0, kind: multiplicative}
+  mass.torso:         {nominal: 1.0, low: 0.8, high: 1.5, kind: multiplicative}
+```
+
+Targets resolve to geoms (`friction`), bodies (`mass`), and joints (`damping`).
+Targeted and global factors compose, and an unknown name fails immediately with
+the valid ones listed. Wrapper parameters take no target.
+
+### SB3 policies trained under VecNormalize
+
+```bash
+sim2real-score run --policy model.zip --vecnormalize vecnormalize.pkl --env Hopper-v5
+```
+
+Without this the policy receives raw observations and you measure a different
+policy than the one you trained.
+
 ## How the score works
 
 `robustness_score = 100 × mean(success_rate)` over the Sobol-sampled space — the

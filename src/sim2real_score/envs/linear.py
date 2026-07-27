@@ -54,6 +54,11 @@ class LinearEnv:
         self.vel = 0.0
 
     def set_domain_params(self, params: dict) -> None:
+        for name in params:
+            if "." in name:
+                raise ValueError(
+                    f"{name!r}: the linear env is a single point mass and has no "
+                    "named parts to target")
         self._friction = float(params.get("friction", self._friction))
         self._mass = float(params.get("mass", self._mass))
         self._damping = float(params.get("damping", self._damping))

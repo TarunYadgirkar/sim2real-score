@@ -11,6 +11,19 @@ DYNAMICS_PARAMS = ("friction", "mass", "damping")
 WRAPPER_PARAMS = ("actuator_gain", "obs_noise", "action_latency", "sensor_dropout")
 
 
+def split_target(name: str):
+    """`"friction.foot"` -> `("friction", "foot")`; `"friction"` -> `("friction", None)`.
+
+    A target names a single geom, body, or joint in the simulator model, so a
+    sweep can probe one weak spot instead of rescaling the whole robot."""
+    base, _, target = name.partition(".")
+    return base, (target or None)
+
+
+def base_param(name: str) -> str:
+    return split_target(name)[0]
+
+
 @dataclass
 class ParamSpec:
     name: str
