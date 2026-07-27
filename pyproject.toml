@@ -1,0 +1,37 @@
+[project]
+name = "sim2real-score"
+version = "0.1.0"
+description = "Find where a control policy breaks under domain shift; emit a robustness report and a suggested domain-randomization config."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "PyYAML>=6.0",
+    "SALib>=1.4.7",
+    "matplotlib>=3.7",
+    "Jinja2>=3.1",
+    "joblib>=1.3",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=2.0"]
+sb3 = ["stable-baselines3>=2.0", "torch>=2.0"]
+onnx = ["onnx>=1.14", "onnxruntime>=1.16"]
+mujoco = ["gymnasium[mujoco]>=1.0", "mujoco>=3.0"]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+sim2real-score = "sim2real_score.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sim2real_score"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
