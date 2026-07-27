@@ -9,8 +9,9 @@ cd ~/TarunsCode/sim2real-score && .venv/bin/python -m pytest
 
 ## What works
 
-Everything in `SPEC.md` §7 is implemented and covered by passing tests — the
-suite runs with **no skips** on this machine (all optional backends installed).
+Everything in `SPEC.md` §7 is implemented and covered by passing tests, plus the
+§7a extensions. **42 passed, 0 skipped** on this machine (all optional backends
+installed).
 
 - **Policy loading** — SB3 `.zip`, TorchScript `.pt`, ONNX. Round-trip tested
   against a known linear policy for each backend. Loaded policies are picklable
@@ -41,12 +42,14 @@ Verified end-to-end: a TorchScript friction-overfit policy on `linear` scores
 Nothing is stubbed behind a fake interface — `BLOCKED.md` was never needed. Real
 limitations, all deliberate and in `SPEC.md` §8:
 
-1. **Ground truth is the synthetic `linear` env, not a trained MuJoCo policy.**
-   Establishing that a *trained* net is provably friction- vs latency-fragile is
-   research-grade and non-deterministic in CI. MuJoCo is covered by a pipeline
-   smoke test, not by sensitivity ground truth. (DECISIONS D4/D8.)
-2. **MuJoCo friction/damping/mass are global multipliers**, applied to every geom
-   and DOF, not per-body or per-geom.
+1. **The friction-vs-latency discrimination ground truth is the synthetic
+   `linear` env.** Establishing that a *trained* net is provably friction- vs
+   latency-fragile is research-grade and non-deterministic in CI. Trained
+   policies are validated on the friction axis only (see above). (DECISIONS
+   D4/D8.)
+2. **Sobol indices do not compare fragility across policies** — they are
+   normalized variance shares and rank parameters within one analysis. Use the
+   score and breaking points to compare policies. (DECISIONS D16.)
 3. **Vector observations only**; policies are treated as stateless `obs -> action`
    (no recurrent state carried across steps).
 4. **Score is mean success rate** over the sampled space — deliberately simple
@@ -54,23 +57,37 @@ limitations, all deliberate and in `SPEC.md` §8:
 5. `numpy<2` is pinned in this venv because torch 2.2.2 (last Intel-macOS build)
    rejects numpy 2.x. Core tool is unaffected.
 
+## Done since the first handoff
+
+- **Validated on trained policies** (was next step #1). Two PPO policies on
+  Hopper, one nominal-trained and one friction-randomized. The tool measures the
+  nominal-trained policy surviving friction only in [0.87, 1.09] (score 13.3)
+  versus [0.74, 1.38] (score 46.1) for the DR-trained one — a ~3× wider band.
+  Policies are committed, so it reruns without training.
+- **Per-element targeted randomization** (was #3): `friction.foot_geom`,
+  `mass.torso`, `damping.leg_joint`.
+- **SB3 VecNormalize support** — without it, an SB3 MuJoCo policy is evaluated
+  on observations it was never trained on.
+
 ## Three highest-value next steps
 
-1. **Train a real SB3 policy on Hopper/Walker2d and validate the ranking against
-   it.** The strongest remaining gap: the discrimination logic is proven on an
-   analytic system but never on a learned controller. Train two policies with
-   deliberately different DR exposure (one trained at fixed friction, one with
-   friction randomized), then assert the tool separates them. This is the test
-   that would make the tool credible for actual sim2real work.
-2. **Close the loop on the suggested DR config.** Retrain over the emitted ranges
-   and re-score; assert the score improves and the top-ranked parameter changes.
-   That turns the DR suggestion from a plausible heuristic into a measured claim,
-   and it's the feature most likely to be wrong in a way nothing currently
-   catches.
-3. **Per-body/per-geom randomization for MuJoCo.** Global multipliers can't
-   express the failure that actually bites in practice (e.g. one joint's damping,
-   the foot's friction). Needs a selector syntax in the YAML (`friction.foot`)
-   and index resolution in `MujocoControlEnv`.
+1. **Close the loop on the suggested DR config.** Retrain over the emitted
+   ranges, re-score, and assert the score improves. Everything needed now exists
+   (`experiments/train_dr_policies.py` already trains under a randomized range),
+   so this is mostly wiring the emitted YAML into the training wrapper. Still the
+   feature most likely to be wrong in a way nothing currently catches — the
+   expansion heuristic (D11) has never been checked against an actual retrain.
+2. **Make the score robust to the "broken everywhere" regime.** A policy that
+   fails across the whole swept range scores near zero and yields no usable
+   ranking (observed: nominal-trained Hopper scored 0.0 with four parameters
+   active, all indices zero). Adaptive range narrowing — shrink toward nominal
+   until some points pass — would turn a useless report into a useful one, and
+   it's the most likely first experience for a genuinely fragile policy.
+3. **Per-parameter episode budgets / early stopping.** Rollouts dominate
+   runtime and most are spent confirming points deep inside a failure region.
+   Stopping an episode once the outcome is decided, and spending the saved
+   budget near the boundary, would make MuJoCo sweeps practical at higher
+   resolution.
 
-Lower value but easy: caching nominal rollouts across bisection calls (bisection
-re-evaluates nominal per parameter), and a `--resume` for long sweeps.
+Lower value but easy: cache nominal rollouts across bisection calls (bisection
+re-evaluates nominal once per parameter), and a `--resume` for long sweeps.

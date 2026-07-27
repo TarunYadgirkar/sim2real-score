@@ -16,3 +16,12 @@ To deploy it as a static page:
 ```bash
 cp report.html index.html && vercel deploy --prod --yes
 ```
+
+`report_hopper.html` is the same tool run against the checked-in nominal-trained
+PPO policy on Hopper-v5, loaded with its VecNormalize statistics:
+
+```bash
+sim2real-score run --policy experiments/policies/nominal.zip --policy-kind sb3 \
+  --vecnormalize experiments/policies/nominal_vecnormalize.pkl \
+  --env Hopper-v5 --out out --sobol-base 8
+```
