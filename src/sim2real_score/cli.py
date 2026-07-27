@@ -24,6 +24,10 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="path to an SB3 .zip, TorchScript .pt, or .onnx policy")
     run.add_argument("--policy-kind", default="auto",
                      choices=["auto", "sb3", "torch", "onnx"])
+    run.add_argument("--vecnormalize",
+                     help="path to a saved SB3 VecNormalize .pkl; its observation "
+                          "statistics are applied before every prediction "
+                          "(required for policies trained under VecNormalize)")
     run.add_argument("--env", required=True,
                      help="env id (e.g. linear, Hopper-v5, Walker2d-v5, Reacher-v5)")
     run.add_argument("--config", help="randomization space YAML (defaults per env)")
@@ -45,7 +49,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def _cmd_run(args) -> int:
     space = (RandomizationSpace.from_yaml(args.config) if args.config
              else default_space(args.env))
-    policy = load_policy(args.policy, kind=args.policy_kind)
+    policy = load_policy(args.policy, kind=args.policy_kind,
+                         vecnormalize=args.vecnormalize)
 
     result = run_analysis(policy, args.env, space, seed=args.seed, jobs=args.jobs,
                           serial=args.serial, sobol_base=args.sobol_base,

@@ -11,16 +11,24 @@ from .base import Policy
 
 
 def load_policy(path: str, kind: str = "auto", obs_dim: Optional[int] = None,
-                action_dim: Optional[int] = None) -> Policy:
+                action_dim: Optional[int] = None,
+                vecnormalize: Optional[str] = None) -> Policy:
+    """Load a policy. `vecnormalize` is the path to a saved SB3 VecNormalize
+    (`.pkl`); its observation statistics are applied before every prediction.
+    MuJoCo policies are almost always trained under VecNormalize, and feeding
+    such a policy raw observations silently evaluates a different policy than the
+    one that was trained."""
     kind = kind.lower()
     if kind == "auto":
         kind = _infer_kind(path)
+    if vecnormalize is not None and kind != "sb3":
+        raise ValueError("vecnormalize applies to SB3 checkpoints only")
     if kind == "torch":
         return TorchScriptPolicy(path, obs_dim=obs_dim, action_dim=action_dim)
     if kind == "onnx":
         return OnnxPolicy(path, obs_dim=obs_dim, action_dim=action_dim)
     if kind == "sb3":
-        return Sb3Policy(path)
+        return Sb3Policy(path, vecnormalize=vecnormalize)
     raise ValueError(f"unknown policy kind: {kind!r}")
 
 
@@ -106,14 +114,19 @@ class Sb3Policy:
     _ALGOS = ("PPO", "SAC", "TD3", "A2C", "DDPG", "DQN")
 
     def __getstate__(self):
-        return {"path": self.path}
+        return {"path": self.path, "vecnormalize": self.vecnormalize_path}
 
     def __setstate__(self, state):
-        self.__init__(state["path"])
+        self.__init__(state["path"], vecnormalize=state.get("vecnormalize"))
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, vecnormalize: Optional[str] = None):
         import stable_baselines3 as sb3  # lazy
         self.path = path
+        self.vecnormalize_path = vecnormalize
+        self._obs_mean, self._obs_var, self._clip_obs, self._epsilon = (
+            None, None, None, None)
+        if vecnormalize is not None:
+            self._load_obs_stats(vecnormalize)
         last_err = None
         model = None
         for name in self._ALGOS:
@@ -132,10 +145,29 @@ class Sb3Policy:
         self.obs_dim = int(np.prod(space.shape)) if space.shape else None
         self.action_dim = int(np.prod(model.action_space.shape))
 
+    def _load_obs_stats(self, path: str) -> None:
+        import pickle
+        with open(path, "rb") as f:
+            vec_normalize = pickle.load(f)
+        if not getattr(vec_normalize, "norm_obs", False):
+            return
+        rms = vec_normalize.obs_rms
+        self._obs_mean = np.asarray(rms.mean, dtype=np.float64)
+        self._obs_var = np.asarray(rms.var, dtype=np.float64)
+        self._clip_obs = float(vec_normalize.clip_obs)
+        self._epsilon = float(vec_normalize.epsilon)
+
+    def _normalize(self, x: np.ndarray) -> np.ndarray:
+        if self._obs_mean is None:
+            return x
+        z = (x - self._obs_mean) / np.sqrt(self._obs_var + self._epsilon)
+        return np.clip(z, -self._clip_obs, self._clip_obs).astype(np.float32)
+
     def predict(self, obs: np.ndarray) -> np.ndarray:
         obs = np.asarray(obs, dtype=np.float32)
         single = obs.ndim == 1
         x = obs.reshape(1, -1) if single else obs
+        x = self._normalize(x)
         action, _ = self.model.predict(x, deterministic=True)
         action = np.asarray(action, dtype=np.float64)
         if action.ndim == 1:
