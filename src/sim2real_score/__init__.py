@@ -16,15 +16,14 @@ __all__ = [
     "RolloutResult", "evaluate_point", "make_evaluator", "nominal_return",
 ]
 
-# Optional (added once implemented): analysis + report symbols.
-try:  # pragma: no cover
-    from .analysis import AnalysisResult, run_analysis  # noqa: F401
-    __all__ += ["AnalysisResult", "run_analysis"]
-except Exception:
-    pass
+from .sensitivity.sobol import SensitivityResult, sobol_analysis
+from .sweep.bisect import BreakingPoint, bisect_boundary
+from .sweep.grid import GridResult, coarse_grid
+from .analysis import (AnalysisResult, dump_dr_config, run_analysis,
+                       suggest_dr_config)
 
-try:  # pragma: no cover
-    from .sensitivity.sobol import SensitivityResult  # noqa: F401
-    __all__ += ["SensitivityResult"]
-except Exception:
-    pass
+__all__ += [
+    "SensitivityResult", "sobol_analysis",
+    "BreakingPoint", "bisect_boundary", "GridResult", "coarse_grid",
+    "AnalysisResult", "run_analysis", "suggest_dr_config", "dump_dr_config",
+]

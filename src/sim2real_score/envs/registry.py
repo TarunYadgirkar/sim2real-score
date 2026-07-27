@@ -7,7 +7,7 @@ from ..randomization.space import RandomizationSpace
 from .linear import LinearEnv
 
 _LINEAR_PARAMS = {
-    "friction":       {"nominal": 1.0, "low": 0.5, "high": 2.0, "kind": "multiplicative"},
+    "friction":       {"nominal": 1.0, "low": 0.3, "high": 2.0, "kind": "multiplicative"},
     "mass":           {"nominal": 1.0, "low": 0.5, "high": 2.0, "kind": "multiplicative"},
     "damping":        {"nominal": 1.0, "low": 0.5, "high": 2.0, "kind": "multiplicative"},
     "actuator_gain":  {"nominal": 1.0, "low": 0.5, "high": 1.5, "kind": "multiplicative"},
@@ -29,8 +29,8 @@ _MUJOCO_PARAMS = {
 _DEFAULTS = {
     "linear": {
         "env": "linear", "seed": 0,
-        "rollout": {"episodes": 5, "max_steps": 150},
-        "failure": {"metric": "return", "threshold": 0.5, "threshold_kind": "mean_reward"},
+        "rollout": {"episodes": 6, "max_steps": 200},
+        "failure": {"metric": "return", "threshold": 0.45, "threshold_kind": "mean_reward"},
         "params": _LINEAR_PARAMS,
     },
     "Reacher-v5": {
