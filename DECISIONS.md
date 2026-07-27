@@ -2,6 +2,31 @@
 
 Running log of non-obvious choices made autonomously. Newest first.
 
+## D17 — The report must not chart indices it cannot support
+Two cases produce a bar chart that implies a ranking where none exists: a
+degenerate analysis (policy behaves identically everywhere, all indices zero) and
+a single active parameter (that parameter explains all variance by construction).
+Both now print an explicit note instead of presenting zeros or a trivial ~1 as an
+insight. Zero indices mean *no measurable variation*, not "these parameters do
+not matter" — a user acting on the latter reading would draw the opposite
+conclusion from the truth.
+
+## D16 — Sobol indices rank parameters *within* a policy, never across policies
+The trained-policy experiment initially asserted that the nominal-trained policy
+would show a higher friction ST than the DR-trained one. It measured the
+opposite (0.57 vs 1.07), and the test was wrong, not the tool. Sobol indices are
+*normalized* variance shares. The nominal-trained policy fails almost everywhere
+in the swept range, so its failure indicator is nearly constant, leaving little
+variance to attribute; the DR-trained policy fails about half the time, so
+friction explains a large share of a large variance. With only one active
+parameter the effect is total — ST is ~1 whenever any variance exists.
+
+Cross-policy fragility is therefore measured by the **score** and the **breaking
+points**, and the validation tests were rewritten accordingly. This is a real
+property of variance-based sensitivity, worth stating plainly in the README
+because the naive reading ("higher ST = more fragile") is wrong in exactly the
+case users care about.
+
 ## D15 — Targeted params are dotted names resolved per model element
 `friction.foot_geom` / `mass.torso` / `damping.leg_joint`. Chose a dotted suffix
 over a nested YAML block because it keeps `ParamSpec`, the Sobol problem

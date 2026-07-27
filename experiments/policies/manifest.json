@@ -1,0 +1,22 @@
+{
+  "env": "Hopper-v5",
+  "steps": 500000,
+  "seed": 0,
+  "friction_range": [
+    0.5,
+    2.0
+  ],
+  "eval_max_steps": 1000,
+  "returns": {
+    "nominal": {
+      "friction_1.0": 3105.6001976430416,
+      "friction_0.7": 1046.3991950571537,
+      "friction_0.5": 770.5613752663136
+    },
+    "dr": {
+      "friction_1.0": 930.1711048603058,
+      "friction_0.7": 512.3145535111428,
+      "friction_0.5": 397.2704001545906
+    }
+  }
+}

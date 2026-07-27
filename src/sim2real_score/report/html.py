@@ -55,7 +55,19 @@ TEMPLATE = Template("""<!doctype html>
 meets its success criterion. {{ failure_pct }}% of coarse-grid points failed.</p>
 
 <h2>Parameter sensitivity</h2>
-{% if sens_img %}<img src="{{ sens_img }}" alt="Sobol sensitivity indices">
+{% if degenerate %}
+<p class="note"><strong>No variance to attribute.</strong> The policy met its
+success criterion identically across every sampled point, so the Sobol indices
+are all zero — that is an absence of measurable variation, not a finding that the
+parameters do not matter. Widen the swept ranges or tighten the failure threshold
+to get a ranking.</p>
+{% elif sens_img %}
+{% if single_param %}<p class="note"><strong>Only one parameter is active</strong>,
+so it explains all of the variance by construction — the index near 1 below says
+nothing about how fragile this policy is. Compare the score and the breaking
+points instead, or activate more parameters to get a meaningful ranking.</p>
+{% endif %}
+<img src="{{ sens_img }}" alt="Sobol sensitivity indices">
 <table><thead><tr><th>#</th><th>Parameter</th><th class="num">ST (total)</th>
 <th class="num">S1 (first)</th></tr></thead><tbody>
 {% for row in ranking_rows %}<tr><td>{{ loop.index }}</td><td>{{ row.name }}</td>
@@ -64,8 +76,7 @@ meets its success criterion. {{ failure_pct }}% of coarse-grid points failed.</p
 <p class="note">Ranked by total-order Sobol index, which counts every interaction a
 parameter participates in. A large gap between ST and S1 means the parameter
 matters mostly <em>in combination</em> with others.</p>
-{% else %}<p class="note">No variance to attribute — the policy behaved
-identically across the whole sampled space.</p>{% endif %}
+{% else %}<p class="note">No active parameters were swept.</p>{% endif %}
 
 <h2>Breaking points</h2>
 <table><thead><tr><th>Parameter</th><th class="num">Swept range</th>
@@ -136,6 +147,8 @@ def build_report(result, out_dir: str, filename: str = "report.html") -> str:
         episodes=space.rollout["episodes"], max_steps=space.rollout["max_steps"],
         seed=space.seed,
         failure_pct=f"{100.0 * result.grid.failure_fraction:.0f}",
+        degenerate=bool(sens.degenerate) and len(space.active_params) > 0,
+        single_param=len(space.active_params) == 1,
         sens_img=sensitivity_bar(result),
         heat_img=interaction_heatmap(result),
         grid_img=grid_curves(result),

@@ -137,6 +137,34 @@ The suggested DR config pushes each range past its measured breaking point,
 further for parameters with a high total-order index, while keeping ranges on the
 same physical scale as the value they broke at.
 
+### Reading the indices correctly
+
+**Sobol indices rank parameters within one policy. They do not compare
+fragility across policies.** They are *normalized* variance shares, so a policy
+that fails almost everywhere has little variance left to attribute and can show a
+*lower* ST than a more robust policy — and with a single active parameter, ST is
+~1 by construction. To compare two policies, use the **score** and the **breaking
+points**. The report says so explicitly when an analysis is degenerate or has only
+one active parameter, rather than charting an uninformative ranking.
+
+## Validation on trained policies
+
+The analytic fixtures prove the ranking logic; `experiments/train_dr_policies.py`
+checks it against real learned controllers. It trains two PPO policies on
+Hopper-v5 — one at fixed nominal friction, one with friction randomized every
+episode — and `tests/test_trained_policy_validation.py` asserts the tool sees the
+difference. Measured on the checked-in policies:
+
+| | survivable friction band | width | score |
+|---|---|---|---|
+| nominal-trained | [0.87, 1.09] | 0.22 | 13.3 |
+| DR-trained | [0.74, 1.38] | **0.64** | 46.1 |
+
+The nominal-trained policy survives only in a narrow band around exactly the
+friction it trained at; domain randomization widens that band about threefold,
+at the cost of peak return (3106 → 930 at nominal friction). The trained policies
+are committed, so the validation runs without retraining.
+
 ## Determinism
 
 Every rollout is a pure function of `(policy, params, seed, index)`; per-episode

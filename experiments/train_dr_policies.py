@@ -30,6 +30,9 @@ import numpy as np
 
 ENV_ID = "Hopper-v5"
 FRICTION_RANGE = (0.5, 2.0)
+# Hopper's natural TimeLimit. These policies differ mainly in how long they
+# survive, so truncating shorter hides the effect under test.
+EVAL_MAX_STEPS = 1000
 
 
 class FrictionRandomizer(gym.Wrapper):
@@ -78,9 +81,14 @@ def train(name: str, randomize: bool, steps: int, out_dir: str, n_envs: int,
 
 
 def evaluate(path: str, vecnorm_path: str, friction: float, episodes: int = 10,
-             seed: int = 0) -> float:
+             seed: int = 0, max_steps: int = EVAL_MAX_STEPS) -> float:
     """Mean return at a given friction multiplier, using the saved obs
-    normalization (frozen)."""
+    normalization (frozen).
+
+    `max_steps` must match what the validation analysis uses. These policies
+    differ mainly in *how long they survive*, so a shorter cap truncates away the
+    very effect being measured -- the cap is recorded in the manifest and read
+    back by the test so the two cannot silently diverge."""
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
@@ -99,13 +107,13 @@ def evaluate(path: str, vecnorm_path: str, friction: float, episodes: int = 10,
     for _ in range(episodes):
         obs = venv.reset()
         inner.model.geom_friction[:] = nominal * friction
-        done, total = False, 0.0
-        while not done:
+        done, total, steps = False, 0.0, 0
+        while not done and steps < max_steps:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, dones, infos = venv.step(action)
-            total += float(infos[0].get("episode", {}).get("r", reward[0])
-                           if False else reward[0])
+            total += float(reward[0])
             done = bool(dones[0])
+            steps += 1
         totals.append(total)
     venv.close()
     return float(np.mean(totals))
@@ -119,6 +127,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--benchmark", action="store_true",
                     help="time a short run and exit")
+    ap.add_argument("--evaluate-only", action="store_true",
+                    help="re-measure existing policies and rewrite the manifest")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -129,13 +139,22 @@ def main():
         print(f"{rate:.0f} steps/s -> {args.steps/rate/60:.1f} min per policy")
         return
 
-    print(f"training on {ENV_ID}, {args.steps} steps each")
-    paths = {
-        "nominal": train("nominal", False, args.steps, args.out, args.n_envs, args.seed),
-        "dr": train("dr", True, args.steps, args.out, args.n_envs, args.seed),
-    }
+    manifest_path = os.path.join(args.out, "manifest.json")
+    trained_steps = args.steps
+    if args.evaluate_only:
+        paths = {n: os.path.join(args.out, f"{n}.zip") for n in ("nominal", "dr")}
+        if os.path.exists(manifest_path):
+            # keep the real training budget; --steps here is just the CLI default
+            with open(manifest_path) as f:
+                trained_steps = json.load(f).get("steps", args.steps)
+    else:
+        print(f"training on {ENV_ID}, {args.steps} steps each")
+        paths = {
+            "nominal": train("nominal", False, args.steps, args.out, args.n_envs, args.seed),
+            "dr": train("dr", True, args.steps, args.out, args.n_envs, args.seed),
+        }
 
-    print("\nsanity check (mean return over 10 episodes):")
+    print(f"\nsanity check (mean return over 10 episodes, max {EVAL_MAX_STEPS} steps):")
     report = {}
     for name, path in paths.items():
         vn = os.path.join(args.out, f"{name}_vecnormalize.pkl")
@@ -143,9 +162,10 @@ def main():
         report[name] = row
         print(f"  {name}: " + "  ".join(f"{k}={v:.0f}" for k, v in row.items()))
 
-    with open(os.path.join(args.out, "manifest.json"), "w") as f:
-        json.dump({"env": ENV_ID, "steps": args.steps, "seed": args.seed,
-                   "friction_range": list(FRICTION_RANGE), "returns": report},
+    with open(manifest_path, "w") as f:
+        json.dump({"env": ENV_ID, "steps": trained_steps, "seed": args.seed,
+                   "friction_range": list(FRICTION_RANGE),
+                   "eval_max_steps": EVAL_MAX_STEPS, "returns": report},
                   f, indent=2)
 
 

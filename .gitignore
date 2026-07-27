@@ -11,3 +11,4 @@ _out/
 .DS_Store
 .vercel/
 demo/index.html
+!experiments/policies/*.zip
