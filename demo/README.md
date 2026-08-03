@@ -1,8 +1,10 @@
 # Demo output
 
-Both `.html` files are real, self-contained reports written by the tool. GitHub
-serves committed HTML as raw source, so `report.png` and `report_hopper.png` are
-screenshots of the top of each one, for reading in the browser.
+Both `.html` files are real, self-contained reports written by the tool. They are
+hosted at **https://sim2real-score-report.vercel.app** — `index.html` in this
+directory is the landing page linking both. `report.png` and `report_hopper.png`
+are screenshots of the top of each, so the README renders on GitHub, which serves
+committed HTML as raw source.
 
 `report.html` is a real report produced by:
 
@@ -15,10 +17,10 @@ A friction-overfit policy on the built-in `linear` env: score 87.5/100, friction
 breaking point located at 0.382, suggested friction training range widened down
 to 0.153.
 
-To deploy it as a static page:
+To redeploy this directory after regenerating either report:
 
 ```bash
-cp report.html index.html && vercel deploy --prod --yes
+vercel deploy --prod --yes
 ```
 
 `report_hopper.html` is the same tool run against the checked-in nominal-trained

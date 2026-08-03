@@ -41,10 +41,9 @@ without retraining anything —
 *Top of [`demo/report_hopper.html`](demo/report_hopper.html) — that same
 nominal-trained Hopper policy, all seven parameters swept at `max_steps: 300`. It
 scores 21.4/100, and the tool locates the edges: two steps of actuator lag, or
-friction 1.37× nominal. Open the HTML for the
-degradation curves, the interaction heatmap, and the suggested DR config; the
-exact command is in [`demo/README.md`](demo/README.md). GitHub serves committed
-`.html` as raw source, hence the screenshot.*
+friction 1.37× nominal. **[Read both reports in the browser →](https://sim2real-score-report.vercel.app)**
+for the degradation curves, the interaction heatmap, and the suggested DR config;
+the exact command is in [`demo/README.md`](demo/README.md).*
 
 ## Usage
 
