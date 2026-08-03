@@ -150,10 +150,18 @@ def suggest_dr_config(result: AnalysisResult) -> dict:
 def dump_dr_config(result: AnalysisResult, path: str) -> str:
     import yaml
     cfg = suggest_dr_config(result)
+    ranking = result.sensitivity.ranking()
+    ranked = (", ".join(ranking) if ranking and not result.sensitivity.degenerate
+              else "n/a (no variance to attribute)")
     header = ("# Suggested domain-randomization ranges, derived from sim2real-score.\n"
               f"# Robustness score: {result.score:.1f}/100. "
-              f"Ranked by total-order Sobol index: "
-              f"{', '.join(result.sensitivity.ranking()) or 'n/a'}\n")
+              f"Ranked by total-order Sobol index: {ranked}\n")
+    stuck = sorted(n for n, bp in result.breaking_points.items() if bp.fails_at_nominal)
+    if stuck:
+        header += ("# WARNING: the policy already fails at nominal for "
+                   f"{', '.join(stuck)}, so no boundary could be located and\n"
+                   "# those ranges collapse to the nominal value. Get the policy "
+                   "working at nominal before training on this config.\n")
     with open(path, "w") as f:
         f.write(header)
         yaml.safe_dump(cfg, f, sort_keys=True, default_flow_style=False)

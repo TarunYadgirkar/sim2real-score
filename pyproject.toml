@@ -15,10 +15,16 @@ dependencies = [
     "joblib>=1.3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/TarunYadgirkar/sim2real-score"
+Repository = "https://github.com/TarunYadgirkar/sim2real-score"
+
 [project.optional-dependencies]
 torch = ["torch>=2.0"]
 sb3 = ["stable-baselines3>=2.0", "torch>=2.0"]
-onnx = ["onnx>=1.14", "onnxruntime>=1.16"]
+# onnxscript is what torch>=2.9's default (dynamo) ONNX exporter imports; without
+# it `torch.onnx.export` raises ModuleNotFoundError on a modern torch.
+onnx = ["onnx>=1.14", "onnxruntime>=1.16", "onnxscript>=0.1"]
 mujoco = ["gymnasium[mujoco]>=1.0", "mujoco>=3.0"]
 dev = ["pytest>=7.4"]
 

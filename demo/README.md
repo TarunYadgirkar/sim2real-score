@@ -1,5 +1,9 @@
 # Demo output
 
+Both `.html` files are real, self-contained reports written by the tool. GitHub
+serves committed HTML as raw source, so `report.png` and `report_hopper.png` are
+screenshots of the top of each one, for reading in the browser.
+
 `report.html` is a real report produced by:
 
 ```bash
@@ -25,3 +29,7 @@ sim2real-score run --policy experiments/policies/nominal.zip --policy-kind sb3 \
   --vecnormalize experiments/policies/nominal_vecnormalize.pkl \
   --env Hopper-v5 --out out --sobol-base 8
 ```
+
+Score 21.4/100, with breaking points at 2 steps of actuator lag and friction
+1.37× nominal. At `--sobol-base 8` the Sobol estimator is not converged — one `S1`
+comes back above 1 — so read the ranking tail there as indicative only.

@@ -63,8 +63,12 @@ def _cmd_run(args) -> int:
     dr = dump_dr_config(result, os.path.join(args.out, "dr_config.yaml"))
 
     ranking = result.sensitivity.ranking()
+    # A degenerate analysis has no variance to attribute, so the ranking is an
+    # artefact of tie-breaking. Say so rather than printing an ordering.
+    informative = bool(ranking) and not result.sensitivity.degenerate
     print(f"robustness score : {result.score:.1f}/100")
-    print(f"most sensitive   : {', '.join(ranking) if ranking else 'n/a'}")
+    print("most sensitive   : " + (", ".join(ranking) if informative
+                                   else "n/a (no variance to attribute)"))
     for name in ranking:
         bp = result.breaking_points.get(name)
         if bp is None:
