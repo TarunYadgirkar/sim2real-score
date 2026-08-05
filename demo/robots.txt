@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sim2real-score-report.vercel.app/sitemap.xml
